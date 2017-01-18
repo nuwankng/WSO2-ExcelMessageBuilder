@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.wso2.custom.ExcelMessageBuilder</groupId>
+  <artifactId>ExcelMessageBuilder</artifactId>
+  <version>1.0.0</version>
+  
+  <description>Custom axis message builder to handle Excel File</description>
+  <dependencies>
+    <dependency>
+        <groupId>org.apache.synapse</groupId>
+        <artifactId>synapse-core</artifactId>
+        <version>2.1.0-wso2v8</version>
+        <exclusions>
+            <exclusion>
+                <groupId>org.apache.axis2</groupId>
+                <artifactId>axis2-codegen</artifactId>
+            </exclusion>
+            <exclusion>
+                <groupId>net.sf.saxon</groupId>
+                <artifactId>saxon</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.poi</groupId>
+        <artifactId>poi-ooxml</artifactId>
+        <version>3.15</version>
+    </dependency>
+  </dependencies>
+  <repositories>
+    <repository>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
+        <checksumPolicy>ignore</checksumPolicy>
+      </releases>
+      <id>wso2-nexus</id>
+      <url>http://maven.wso2.org/nexus/content/groups/wso2-public/</url>
+    </repository>
+  </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
+        <checksumPolicy>ignore</checksumPolicy>
+      </releases>
+      <id>wso2-nexus</id>
+      <url>http://maven.wso2.org/nexus/content/groups/wso2-public/</url>
+    </pluginRepository>
+  </pluginRepositories>
+ <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.6</source>
+                    <target>1.6</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
