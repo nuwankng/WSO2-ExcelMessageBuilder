@@ -80,32 +80,36 @@ public class ExcelMessageBuilder implements Builder {
 		for (int i = 0; i <= sheet.getLastRowNum(); i++) {
 			row = sheet.getRow(i);
 			String line = "";
-			for (int j = 0; j < row.getLastCellNum(); j++) {
-				Cell cell = row.getCell(j);
-				if (cell != null) {
-					switch (cell.getCellType()) {
-					case HSSFCell.CELL_TYPE_STRING:
-						line += cell.getRichStringCellValue().getString();
-						break;
-					case HSSFCell.CELL_TYPE_NUMERIC:
-						if (HSSFDateUtil.isCellDateFormatted(cell)) {
-							/* A date is considered as a numeric type */
-							line += getDateFromCell(cell);
-						} else {
-							line += cell.getNumericCellValue();
+			if (row != null) {
+				for (int j = 0; j < row.getLastCellNum(); j++) {
+					Cell cell = row.getCell(j);
+					if (cell != null) {
+						switch (cell.getCellType()) {
+						case HSSFCell.CELL_TYPE_STRING:
+							line += cell.getRichStringCellValue().getString();
+							break;
+						case HSSFCell.CELL_TYPE_NUMERIC:
+							if (HSSFDateUtil.isCellDateFormatted(cell)) {
+								/* A date is considered as a numeric type */
+								line += getDateFromCell(cell);
+							} else {
+								line += cell.getNumericCellValue();
+							}
+							break;
+						case HSSFCell.CELL_TYPE_BOOLEAN:
+							line += cell.getBooleanCellValue();
+						default:
+							line += cell;
+							break;
 						}
-						break;
-					case HSSFCell.CELL_TYPE_BOOLEAN:
-						line += cell.getBooleanCellValue();
-					default:
-						line += cell;
-						break;
+					}
+					if (j < (row.getLastCellNum() -1)) {
+						line += ";";
 					}
 				}
-				line += ";";
-			}
-			if (!isLineEmpty(line)) {
-				csv += line + "\n";
+				if (!isLineEmpty(line)) {
+					csv += line + "\n";
+				}
 			}
 		}	
 		return csv;
