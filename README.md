@@ -18,5 +18,5 @@ To use this new builder you have to copy the library (poi-ooxml) and the generat
 Then you need to setup axis to use this message builder for a give content type
 
 ```xml
-<messageBuilder class="org.wso2.custom.ExcelMessageBuilder" contentType="application/vnd.ms-excel"/> 
+<messageBuilder class="org.wso2.custom.ExcelMessageBuilder" contentType="application/binary"/> 
 ```
