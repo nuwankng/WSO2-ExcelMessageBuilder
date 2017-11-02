@@ -2,28 +2,26 @@ package org.wso2.custom;
 
 import org.apache.axiom.om.OMAbstractFactory;
 import org.apache.axiom.om.OMElement;
-import org.apache.axiom.soap.SOAPBody;
 import org.apache.axiom.soap.SOAPEnvelope;
 import org.apache.axiom.soap.SOAPFactory;
 import org.apache.axis2.AxisFault;
 import org.apache.axis2.builder.Builder;
 import org.apache.axis2.context.MessageContext;
+import org.apache.commons.lang.StringUtils;
 
 import javax.xml.namespace.QName;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.FileNotFoundException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.apache.poi.EncryptedDocumentException;
-import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -33,7 +31,8 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
  * Custom axis2 message builder that handle Excel file populate the payload with the csv representation
  */
 public class ExcelMessageBuilder implements Builder {
-
+private final static String SEPARATOR = ";";
+    
 	/**
 	 * {@inheritDoc}
 	 */
@@ -44,16 +43,16 @@ public class ExcelMessageBuilder implements Builder {
 
 		try {
 			Workbook wb = WorkbookFactory.create(inputStream);
-			SOAPBody body = soapEnvelope.getBody();
+			FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
 			
-			/* Browse all the sheets of the Excel document */
-			for (int i = 0; i < wb.getNumberOfSheets(); i++) {
-				/* For each of them create a new XML node containing the csv representation */
-				OMElement sheetElement = soapFactory.createOMElement(new QName(
-						"sheet"), body);
-				sheetElement.addAttribute(soapFactory.createOMAttribute("name",
-						null, wb.getSheetAt(i).getSheetName()));
-				sheetElement.setText(sheetAsCSV(wb.getSheetAt(i)));
+			/* For each of them create a new XML node containing the csv representation */
+			for (Sheet sheet : wb) {
+				String csv = sheetAsCSV(sheet, evaluator);
+				if (StringUtils.isNotEmpty(csv)) {
+					OMElement sheetElement = soapFactory.createOMElement(new QName("sheet"), soapEnvelope.getBody());
+					sheetElement.addAttribute(soapFactory.createOMAttribute("name",null, sheet.getSheetName()));
+					sheetElement.setText(csv);
+				}
 			}
 
 		} catch (FileNotFoundException ex) {
@@ -74,45 +73,47 @@ public class ExcelMessageBuilder implements Builder {
 	 * @param sheet Excel sheet
 	 * @return csv representation as a string
 	 */
-	private String sheetAsCSV(Sheet sheet) {
-		String csv = "";
-		Row row = null;
-		for (int i = 0; i <= sheet.getLastRowNum(); i++) {
-			row = sheet.getRow(i);
-			String line = "";
+	private String sheetAsCSV(Sheet sheet, FormulaEvaluator evaluator) {
+		StringBuilder csv = new StringBuilder();
+		StringBuilder lineBuilder = new StringBuilder();
+		String  sep, val;
+		for (Row row : sheet) {
 			if (row != null) {
-				for (int j = 0; j < row.getLastCellNum(); j++) {
-					Cell cell = row.getCell(j);
+				sep = "";
+				for (Cell cell: row) {
+					val = "";
 					if (cell != null) {
-						switch (cell.getCellType()) {
-						case HSSFCell.CELL_TYPE_STRING:
-							line += cell.getRichStringCellValue().getString();
+						switch (evaluator.evaluateInCell(cell).getCellTypeEnum()) {
+						case STRING:
+							val = cell.getStringCellValue();
 							break;
-						case HSSFCell.CELL_TYPE_NUMERIC:
+						case NUMERIC:
 							if (HSSFDateUtil.isCellDateFormatted(cell)) {
 								/* A date is considered as a numeric type */
-								line += getDateFromCell(cell);
+								val = getDateFromCell(cell);
 							} else {
-								line += cell.getNumericCellValue();
+								val = Double.toString(cell.getNumericCellValue());
 							}
 							break;
-						case HSSFCell.CELL_TYPE_BOOLEAN:
-							line += cell.getBooleanCellValue();
+						case BOOLEAN:
+							val = Boolean.toString(cell.getBooleanCellValue());
+						case BLANK:
+							val = "";
 						default:
-							line += cell;
+							val = cell.toString();
 							break;
 						}
 					}
-					if (j < (row.getLastCellNum() -1)) {
-						line += ";";
-					}
+					lineBuilder.append(sep).append(val);
+					sep = SEPARATOR;
 				}
-				if (!isLineEmpty(line)) {
-					csv += line + "\n";
+				if (!isLineEmpty(lineBuilder.toString())) {
+					csv.append(lineBuilder).append(System.getProperty("line.separator"));
 				}
 			}
+			lineBuilder.setLength(0);
 		}	
-		return csv;
+		return csv.toString();
 	}
 
 	/**
@@ -122,20 +123,24 @@ public class ExcelMessageBuilder implements Builder {
 	 */
 	private String getDateFromCell(Cell cell) {
 		Date date = cell.getDateCellValue();
+		String dateFormatString = cell.getCellStyle().getDataFormatString();
+
 		/* 
-		 * TODO : We should find a more generic way of managing TimeZones. 
-         * Excel times are enconding in 1889, for some timzone it can be a strange offset
-         * like for instance Europe/Paris has an offset of +00:09:21
-         * The general idea would be to use the default system time zone and move the date
-         * in the current year
-         */
-		LocalDateTime ldate = LocalDateTime.ofInstant(date.toInstant(), ZoneId.of("CET"));
-		DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-		
-		if (cell.getNumericCellValue() < 1) {
-			format = DateTimeFormatter.ofPattern("HH:mm");
-		} 
-		return ldate.format(format);
+		* TODO : We should find a more generic way of managing TimeZones. 
+         	* Excel times are enconding in 1889, for some timzone it can be a strange offset
+         	* like for instance Europe/Paris has an offset of +00:09:21
+		* The general idea would be to use the default system time zone and move the date
+         	* in the current year
+         	*/
+		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+		if (cell.getNumericCellValue() <= 1) {
+			/* Date till 1900-01-01 23:59 are considered as time */
+			format = new SimpleDateFormat("HH:mm");
+		}  else if (dateFormatString.toLowerCase().contains("y") && dateFormatString.toLowerCase().contains("h")) {
+			/* Case of date and time (Based on Excel cell format) */
+			format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		}
+		return format.format(date);
 	}
 	
 	/**
@@ -144,6 +149,6 @@ public class ExcelMessageBuilder implements Builder {
 	 * @return true if the line contains no value
 	 */
 	private boolean isLineEmpty(String line) {
-		return line.replaceAll(";", "").trim().isEmpty();
+		return line.replaceAll(SEPARATOR, "").trim().isEmpty();
 	}
 }
