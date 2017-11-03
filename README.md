@@ -37,6 +37,7 @@ Then you need to setup axis to use this message builder for a give content type
 <script language="js"><![CDATA[var csv = mc.getPayloadXML();   
   var lines = (csv + "").split("\n");
  	for (var l = 1; l <= lines.length; l++) {
- 		 	cells = (lines[l] + "").split(";");
+ 	  cells = (lines[l] + "").split(";");
+  }
 ]]></script>
 ```
